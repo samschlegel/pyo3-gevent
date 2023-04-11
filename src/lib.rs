@@ -8,7 +8,7 @@ create_exception!(pyo3_gevent, PyO3GeventError, pyo3::exceptions::PyException);
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn sum_as_string(py: Python, a: usize, b: usize) -> PyResult<&PyAny> {
-    tokio::future_into_py(py, async move {
+    tokio::future_into_greenlet(py, async move {
         ::tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         Ok((a + b).to_string())
     })
