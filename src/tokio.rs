@@ -188,6 +188,7 @@ where
     let locals2 = locals.clone();
     let locals3 = locals.clone();
     let current_greenlet = py.import("gevent")?.getattr("getcurrent")?.call0()?;
+    println!("current_greenlet: {:?}", current_greenlet);
     let greenlet_tx1 = PyObject::from(current_greenlet);
     let greenlet_tx2 = greenlet_tx1.clone();
 
@@ -195,7 +196,6 @@ where
         let run_task = get_runtime()
             .spawn(async move {
                 let result = scope(locals.clone(), fut).await;
-                println!("result: {:?}", result);
                 Python::with_gil(move |py| {
                     let _ = switch_back(
                         locals.iloop(py),
