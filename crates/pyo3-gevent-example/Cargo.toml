@@ -1,0 +1,16 @@
+[package]
+name = "pyo3-gevent-example"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "pyo3_gevent"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = {version="0.27.1", features=["extension-module"]}
+pyo3-gevent = {path = "../pyo3-gevent"}
+tokio = { version = "1.48.0", features = ["full"] }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+gevent = "25.9.1"
+
+[dev-packages]
+maturin = "*"
+
+[requires]
+python_version = "3.14"
+python_full_version = "3.14.0"

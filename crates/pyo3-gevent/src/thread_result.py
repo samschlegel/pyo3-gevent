@@ -1,9 +1,13 @@
 import typing
 
-class _FakeAsync(object):
+import gevent
+from gevent.event import AsyncResult
 
+
+class _FakeAsync(object):
     def send(self):
         pass
+
     close = stop = send
 
     def __call__(self, result):
@@ -14,7 +18,9 @@ class _FakeAsync(object):
 
     __nonzero__ = __bool__
 
+
 _FakeAsync = _FakeAsync()
+
 
 class ThreadResult(object):
     """
@@ -26,16 +32,15 @@ class ThreadResult(object):
     """
 
     # Using slots here helps to debug reference cycles/leaks
-    __slots__ = ('exc_info', 'async_watcher', 'value',
-                 'context', 'hub', 'receiver')
+    __slots__ = ("exc_info", "async_watcher", "value", "context", "hub", "async_result")
 
-    def __init__(self, receiver, hub):
-        self.receiver = receiver
-        self.hub = hub
+    def __init__(self, async_result: AsyncResult[typing.Any]):
+        self.async_result = async_result
+        self.hub = gevent.get_hub()
         self.context = None
         self.value = None
         self.exc_info = ()
-        self.async_watcher = hub.loop.async_()
+        self.async_watcher = self.hub.loop.async_()
         self.async_watcher.start(self._on_async)
 
     @property
@@ -58,9 +63,9 @@ class ThreadResult(object):
             self.async_watcher = _FakeAsync
             self.hub = None
 
-            self.receiver(self)
+            self.async_result(self)
         finally:
-            self.receiver = _FakeAsync
+            self.async_result = _FakeAsync
             self.value = None
             if self.exc_info:
                 self.exc_info = (self.exc_info[0], self.exc_info[1], None)
@@ -75,7 +80,7 @@ class ThreadResult(object):
 
         self.context = None
         self.hub = None
-        self.receiver = _FakeAsync
+        self.async_result = _FakeAsync
 
     def set(self, value):
         self.value = value
