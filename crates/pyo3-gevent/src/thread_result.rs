@@ -68,6 +68,30 @@ where
     }
 }
 
+impl<T, E> Drop for Sender<T, E> {
+    fn drop(&mut self) {
+        if self.is_completed {
+            return;
+        }
+        Python::attach(|py| {
+            let py_constructors = PyConstructors::get(py);
+            let iloop = py_constructors.get_iloop(py);
+            iloop
+                .0
+                .call_method1(
+                    py,
+                    "run_callback_threadsafe",
+                    (self
+                        .thread_result
+                        .0
+                        .getattr(py, "destroy_in_main_thread")
+                        .unwrap(),),
+                )
+                .unwrap();
+        });
+    }
+}
+
 impl<T> Receiver<T> {
     pub fn wait(self) -> PyResult<Py<PyAny>> {
         Python::attach(|py| self.async_result.0.call_method0(py, "get"))
