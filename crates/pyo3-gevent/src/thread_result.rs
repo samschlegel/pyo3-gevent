@@ -2,9 +2,12 @@ use crate::{
     py_constructors::PyConstructors,
     wrappers::{AsyncResult, ThreadResult},
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
-use pyo3::prelude::*;
+use pyo3::{
+    prelude::*,
+    types::{PyDict, PyDictMethods},
+};
 
 pub fn new_thread_result<T, E>() -> PyResult<(Sender<T, E>, Receiver<T>)> {
     Python::attach(|py| {
@@ -13,29 +16,45 @@ pub fn new_thread_result<T, E>() -> PyResult<(Sender<T, E>, Receiver<T>)> {
         let async_result = constructors.new_async_result(py)?;
         let thread_result = constructors.new_thread_result(py, async_result.clone_ref(py))?;
 
+        let shared_drop_guard = Arc::new(SharedDropGuard {
+            thread_result: thread_result.clone_ref(py),
+        });
+
         let sender = Sender {
             thread_result,
             marker: PhantomData,
             is_completed: false,
+            _shared_drop_guard: Arc::clone(&shared_drop_guard),
         };
         let receiver = Receiver {
             async_result,
             marker: PhantomData,
+            _shared_drop_guard: shared_drop_guard,
         };
 
         Ok((sender, receiver))
     })
 }
 
+/// Holds a ptr to the ThreadResult active and calls
+/// `ThreadResult.destroy_in_main_thread` when both the sender and receiver are
+/// dropped. As long as one of the two is active, the ThreadResult will not be
+/// destroyed from the gevent Hub.
+struct SharedDropGuard {
+    thread_result: ThreadResult,
+}
+
 pub struct Sender<T, E> {
     thread_result: ThreadResult,
     marker: PhantomData<Result<T, E>>,
     is_completed: bool,
+    _shared_drop_guard: Arc<SharedDropGuard>,
 }
 
 pub struct Receiver<T> {
     async_result: AsyncResult,
     marker: PhantomData<T>,
+    _shared_drop_guard: Arc<SharedDropGuard>,
 }
 
 impl<T, E> Sender<T, E>
@@ -68,11 +87,8 @@ where
     }
 }
 
-impl<T, E> Drop for Sender<T, E> {
+impl Drop for SharedDropGuard {
     fn drop(&mut self) {
-        if self.is_completed {
-            return;
-        }
         Python::attach(|py| {
             let py_constructors = PyConstructors::get(py);
             let iloop = py_constructors.get_iloop(py);
@@ -95,5 +111,15 @@ impl<T, E> Drop for Sender<T, E> {
 impl<T> Receiver<T> {
     pub fn wait(self) -> PyResult<Py<PyAny>> {
         Python::attach(|py| self.async_result.0.call_method0(py, "get"))
+    }
+
+    pub fn wait_timeout(self, timeout: Duration) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("timeout", timeout.as_secs_f64())?;
+            self.async_result
+                .0
+                .call_method(py, "get", (), Some(&kwargs))
+        })
     }
 }

@@ -3,3 +3,7 @@ members = [
     "crates/pyo3-gevent",
     "crates/pyo3-gevent-example",
 ]
+resolver = "3"
+
+[profile.bench]
+debug = true

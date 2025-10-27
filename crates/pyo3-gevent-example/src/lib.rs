@@ -3,8 +3,8 @@ use pyo3::{create_exception, prelude::*};
 create_exception!(pyo3_gevent, PyO3GeventError, pyo3::exceptions::PyException);
 
 #[pymodule]
-mod pyo3_gevent {
-    use std::thread::spawn;
+mod pyo3_gevent_example {
+    use std::thread::{self, spawn};
     use std::time::Duration;
 
     use pyo3::prelude::*;
@@ -33,6 +33,38 @@ mod pyo3_gevent {
         })?;
 
         result.wait()
+    }
+
+    #[pyfunction]
+    fn thread_result_ready_immediately() -> PyResult<()> {
+        let (tx, rx) = new_thread_result::<(), ()>()?;
+        tx.complete_ok(())?;
+        rx.wait()?;
+        // println!("did one iter!");
+
+        Ok(())
+    }
+
+    #[pyfunction]
+    fn thread_result_os_thread() -> PyResult<()> {
+        let (tx, rx) = new_thread_result::<(), ()>()?;
+        thread::spawn(move || {
+            tx.complete_ok(()).unwrap();
+        });
+        rx.wait()?;
+
+        Ok(())
+    }
+
+    #[pyfunction]
+    fn thread_result_tokio_task() -> PyResult<()> {
+        let (tx, rx) = new_thread_result::<(), ()>()?;
+        get_runtime().spawn(async move {
+            tx.complete_ok(()).unwrap();
+        });
+        rx.wait()?;
+
+        Ok(())
     }
 
     #[pyfunction]

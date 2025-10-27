@@ -21,3 +21,9 @@ impl AsyncResult {
         Self(self.0.clone_ref(py))
     }
 }
+
+impl ThreadResult {
+    pub fn clone_ref(&self, py: Python<'_>) -> Self {
+        Self(self.0.clone_ref(py))
+    }
+}

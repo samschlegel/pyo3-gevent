@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "pyo3_gevent"
+name = "pyo3_gevent_example"
 crate-type = ["cdylib"]
 
 [dependencies]
